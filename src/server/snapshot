@@ -1,0 +1,73 @@
+getconf remote_user
+getconf remote_host
+getconf remote_path
+getconf local_user
+getconf local_path
+
+
+function create_snapshots() {
+	debug "SNAPSHOT create ($remote_user:$remote_host/$remote_path) =>  ($local_user:$local_path)"
+	paths=`runuser -l $local_user -c "ssh $remote_user@$remote_host sudo ~/scripts/lvmbackup/snapshot.sh create $remote_path"`
+	if [ $? -eq 1 ]; then
+		fatal "Unable to make snapshots"
+		return 1
+	fi
+
+	debug "SNAPSHOT created"
+
+}
+
+function cleanup_snapshots() {
+	debug "SNAPSHOT clean ($remote_user:$remote_host/$remote_path)"
+	runuser -l $local_user -c "ssh $remote_user@$remote_host sudo ~/scripts/lvmbackup/snapshot.sh delete $remote_path"
+	if [ $? -eq 1 ]; then
+		fatal "Unable to cleanup snapshots"
+		return 1
+	fi
+
+	debug "SNAPSHOT cleaned"
+}
+
+function backup() {
+	while read i; do
+		base_path=`basename $i`
+		debug "SNAPSHOT Backing up ${i}"
+		runuser -l $local_user -c "rdiff-backup --remote-schema 'ssh -C %s nice sudo /usr/bin/rdiff-backup --server --restrict-read-only /' $remote_user@$remote_host::$i $local_path/$base_path "
+		if [ $? -eq 1 ]; then
+			error $i
+			return 1
+		fi
+	done <<< $paths
+
+}
+
+debug "$paths"
+
+cleanup_snapshots 
+if [ ! $1 ]; then
+	return 1
+fi
+
+create_snapshots
+if [ ! $1 ]; then
+	return 1
+fi
+
+backup
+if [ ! $1 ]; then
+	return 1
+fi
+
+debug "SNAPSHOT backup finished"
+
+cleanup_snapshots 
+if [ ! $1 ]; then
+	return 1
+fi
+
+
+return 0
+
+
+echo $paths
+

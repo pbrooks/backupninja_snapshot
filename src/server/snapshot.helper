@@ -1,0 +1,44 @@
+HELPERS="$HELPERS snapshot: remote snapshot"
+wizardname="snapshot"
+
+snapshot_wizard() {
+
+	inputBox "$wizardname" "specify a remote user"
+	[ $? = 1 ] && return
+	remote_user=$REPLY
+
+	inputBox "$wizardname" "specify a remote host"
+	[ $? = 1 ] && return
+	remote_host=$REPLY
+
+	inputBox "$wizardname" "specify a lv path on the remote"
+	[ $? = 1 ] && return
+	remote_path=$REPLY
+
+	inputBox "$wizardname" "specify a local user"
+	[ $?1 = 1 ] && return
+	local_user=$REPLY
+
+	inputBox "$wizardname" "specify a local folder"
+	[ $? = 1 ] && return
+	local_path=$REPLY
+
+	base=`basename $remote_path`
+
+	get_next_filename "$configdirectory/50-$base.snapshot"
+	cat >> $next_filename <<EOF
+
+# Remote details
+remote_user = $remote_user
+remote_host = $remote_host
+remote_path = $remote_path
+
+# Local details
+local_user = $local_user
+local_path = $local_path
+
+
+EOF
+
+chmod 600 $next_filename
+}
